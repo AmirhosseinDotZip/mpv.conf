@@ -35,35 +35,30 @@
     API to get videos from Youtube.
     The 'invidious' option tells the script that the API_path is for an
     Invidious path. This is to support other possible API options in the future.
-]]--
+]]
+--
 
 local mp = require "mp"
 local msg = require "mp.msg"
 local utils = require "mp.utils"
 local opts = require "mp.options"
 
-package.path = mp.command_native({"expand-path", "~~/script-modules/?.lua;"}) .. package.path
+package.path = mp.command_native({ "expand-path", "~~/script-modules/?.lua;" }) .. package.path
 local ui = require "user-input-module"
 local list = require "scroll-list"
 
 local o = {
     API_key = "AIzaSyC6dLlA-Mae6iRqynb_OgEoc2utmusZidU",
-
     --number of search results to show in the list
     num_results = 40,
-
     --the url to send API calls to
     API_path = "https://www.googleapis.com/youtube/v3/",
-
     --attempt this API if the default fails
     fallback_API_path = "",
-
     --the url to load videos from
     frontend = "https://www.youtube.com",
-
     --use invidious API calls
     invidious = false,
-
     --whether the fallback uses invidious as well
     fallback_invidious = false
 }
@@ -72,14 +67,15 @@ opts.read_options(o)
 
 --ensure the URL options are properly formatted
 local function format_options()
-    if o.API_path:sub(-1) ~= "/" then o.API_path = o.API_path.."/" end
-    if o.fallback_API_path:sub(-1) ~= "/" then o.fallback_API_path = o.fallback_API_path.."/" end
+    if o.API_path:sub(-1) ~= "/" then o.API_path = o.API_path .. "/" end
+    if o.fallback_API_path:sub(-1) ~= "/" then o.fallback_API_path = o.fallback_API_path .. "/" end
     if o.frontend:sub(-1) == "/" then o.frontend = o.frontend:sub(1, -2) end
 end
 
 format_options()
 
-list.header = ("%s Search: \\N-------------------------------------------------"):format(o.invidious and "Invidious" or "Youtube")
+list.header = ("%s Search: \\N-------------------------------------------------"):format(o.invidious and "Invidious" or
+    "Youtube")
 list.num_entries = 17
 list.list_style = [[{\fs10}\N{\q2\fs25\c&Hffffff&}]]
 list.empty_text = "enter search query"
@@ -90,10 +86,10 @@ local ass_escape = list.ass_escape
 --this function is based on code taken from here: https://rosettacode.org/wiki/URL_encoding#Lua
 local function encode_string(str)
     if type(str) ~= "string" then return str end
-	local output, t = str:gsub("[^%w]", function(char)
-        return string.format("%%%X",string.byte(char))
+    local output, t = str:gsub("[^%w]", function(char)
+        return string.format("%%%X", string.byte(char))
     end)
-	return output
+    return output
 end
 
 --convert HTML character codes to the correct characters
@@ -169,12 +165,12 @@ end
 
 --sends an API request
 local function send_request(type, queries, API_path)
-    local url = (API_path or o.API_path)..type
-    url = url.."?"
+    local url = (API_path or o.API_path) .. type
+    url = url .. "?"
 
     for key, value in pairs(queries) do
         msg.verbose(key, value)
-        url = url.."&"..key.."="..encode_string(value)
+        url = url .. "&" .. key .. "=" .. encode_string(value)
     end
 
     msg.debug(url)
@@ -183,12 +179,15 @@ local function send_request(type, queries, API_path)
         capture_stdout = true,
         capture_stderr = true,
         playback_only = false,
-        args = {"curl", url}
+        args = { "curl", url }
     })
 
     local response = utils.parse_json(request.stdout)
     msg.trace(utils.to_string(response))
-    if request.status ~= 0 then msg.error(request.stderr) ; return nil end
+    if request.status ~= 0 then
+        msg.error(request.stderr);
+        return nil
+    end
     if not response then
         msg.error("Could not parse response:")
         msg.error(request.stdout)
@@ -200,7 +199,8 @@ end
 
 --sends a search API request - handles Google/Invidious API differences
 local function search_request(queries, API_path, invidious)
-    list.header = ("%s Search: %s\\N-------------------------------------------------"):format(invidious and "Invidious" or "Youtube", ass_escape(queries.q, true))
+    list.header = ("%s Search: %s\\N-------------------------------------------------"):format(
+        invidious and "Invidious" or "Youtube", ass_escape(queries.q, true))
     list.list = {}
     list.empty_text = "~"
     list:update()
@@ -208,7 +208,6 @@ local function search_request(queries, API_path, invidious)
 
     --we need to modify the returned results so that the rest of the script can read it
     if invidious then
-
         --Invidious searches are done with pages rather than a max result number
         local page = 1
         while #results < o.num_results do
@@ -216,7 +215,10 @@ local function search_request(queries, API_path, invidious)
 
             local response = send_request("search", queries, API_path)
             response = format_invidious_results(response)
-            if not response then msg.warn("Search did not return a results list") ; return end
+            if not response then
+                msg.warn("Search did not return a results list");
+                return
+            end
             if #response == 0 then break end
 
             for _, item in ipairs(response) do
@@ -288,7 +290,8 @@ local function search(query)
     local response = search_request(get_search_queries(query, o.invidious), o.API_path, o.invidious)
     if not response and o.fallback_API_path ~= "" then
         msg.info("search failed - attempting fallback")
-        response = search_request(get_search_queries(query, o.fallback_invidious), o.fallback_API_path, o.fallback_invidious)
+        response = search_request(get_search_queries(query, o.fallback_invidious), o.fallback_API_path,
+            o.fallback_invidious)
     end
 
     if not response then return end
@@ -309,27 +312,31 @@ end
 
 local function play_result(flag)
     if not list[list.selected] then return end
-    if flag == "new_window" then mp.commandv("run", "mpv", list[list.selected].url) ; return end
+    if flag == "new_window" then
+        mp.commandv("run", "mpv", list[list.selected].url);
+        return
+    end
 
     mp.commandv("loadfile", list[list.selected].url, flag)
     if flag == "replace" then list:close() end
 end
 
-table.insert(list.keybinds, {"ENTER", "play", function() play_result("replace") end, {}})
-table.insert(list.keybinds, {"Shift+ENTER", "play_append", function() play_result("append-play") end, {}})
-table.insert(list.keybinds, {"Ctrl+ENTER", "play_new_window", function() play_result("new_window") end, {}})
+table.insert(list.keybinds, { "ENTER", "play", function() play_result("replace") end, {} })
+table.insert(list.keybinds, { "Shift+ENTER", "play_append", function() play_result("append-play") end, {} })
+table.insert(list.keybinds, { "Ctrl+ENTER", "play_new_window", function() play_result("new_window") end, {} })
 
 local function open_search_input()
     ui.get_user_input(function(input)
         if not input then return end
-        search( input )
+        search(input)
     end, { request_text = "Enter Query:" })
 end
 
 mp.add_key_binding("Ctrl+y", "yt", open_search_input)
 
 mp.add_key_binding("Y", "youtube-search", function()
-    if not list.hidden then open_search_input()
+    if not list.hidden then
+        open_search_input()
     else
         list:open()
         if #list.list == 0 then open_search_input() end
